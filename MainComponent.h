@@ -3,6 +3,8 @@
 #include "Synth.h"
 #include "Visualiser.h"
 
+juce::SmoothedValue<float> sustainRamp = 0.8f;
+
 class MainComponent : public juce::Component,
     private juce::AudioIODeviceCallback,  
     private juce::MidiInputCallback       
@@ -32,6 +34,18 @@ public:
 
         synth.enableLegacyMode(24);
         synth.setVoiceStealingEnabled(false);
+
+        addAndMakeVisible(sustainSlider);
+        sustainSlider.setRange(0.8, 1.0);
+        sustainSlider.setBounds(200, 500, 400, 100);
+        sustainSlider.onValueChange = [this]
+        {
+            sustainRamp = sustainSlider.getValue();
+        };
+
+        addAndMakeVisible(sustainLabel);
+        sustainLabel.setBounds(200, 450, 100, 100);
+        sustainLabel.setText(juce::String("Decay"), juce::dontSendNotification);
 
         visualiserInstrument.enableLegacyMode(24);
 
@@ -97,15 +111,18 @@ private:
     }
 
     //==============================================================================
-    juce::AudioDeviceManager audioDeviceManager;         // [3]
-    juce::AudioDeviceSelectorComponent audioSetupComp;   // [4]
+    juce::AudioDeviceManager audioDeviceManager;         
+    juce::AudioDeviceSelectorComponent audioSetupComp;   
 
     Visualiser visualiserComp;
     juce::Viewport visualiserViewport;
 
     juce::MPEInstrument visualiserInstrument;
     juce::MPESynthesiser synth;
-    juce::MidiMessageCollector midiCollector;            // [5]
+    juce::MidiMessageCollector midiCollector;
+
+    juce::Label sustainLabel;
+    juce::Slider sustainSlider;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

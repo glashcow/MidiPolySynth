@@ -12,6 +12,9 @@
 
 #include <JuceHeader.h>
 
+//Global Synth Variables
+extern juce::SmoothedValue<float> sustainRamp;
+
 class WavetableOscillator
 {
 public:
@@ -63,8 +66,6 @@ public:
         osc = new WavetableOscillator(squareTable);
     }
 
-    //juce::SmoothedValue<float> sustainRamp;
-
     //==============================================================================
     void noteStarted() override
     {
@@ -78,7 +79,7 @@ public:
         timbre.setTargetValue(currentlyPlayingNote.timbre.asUnsignedFloat());
 
         osc->setFrequency(frequency.getCurrentValue(), 48000.0);
-        tailOff = 1.0f;
+        tailOff = 1;
     }
 
     void noteStopped(bool allowTailOff) override
@@ -126,14 +127,13 @@ public:
     {
         for (auto sample = 0; sample < numSamples; ++sample)
         {
-            float levelSample = osc->getNextSample() * 0.25f ;
+            float levelSample = getNextSample() * 0.25f;
             for (auto i = outputBuffer.getNumChannels(); --i >= 0;)
                 outputBuffer.addSample(i, startSample, levelSample);
 
             ++startSample;
-            
         }
-        //tailOff *= sustainRamp.getCurrentValue();
+        
     }
 
     void createPureSineWavetable()
@@ -178,9 +178,16 @@ public:
 
 private:
     //==============================================================================
+    unsigned short int modulo = 0;
     float getNextSample() noexcept
     {
-        return osc->getNextSample();
+        ++modulo;
+        if (modulo == 128)
+        {
+            tailOff *= sustainRamp.getCurrentValue();
+            modulo = 0;
+        }
+        return osc->getNextSample() * tailOff;
     }
 
     //==============================================================================

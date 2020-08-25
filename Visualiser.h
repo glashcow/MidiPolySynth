@@ -11,6 +11,8 @@
 
 #include <JuceHeader.h>
 
+
+
 //==============================================================================
 class NoteComponent : public juce::Component
 {
