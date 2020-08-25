@@ -13,7 +13,7 @@
 #include <JuceHeader.h>
 
 //Global Synth Variables
-extern juce::SmoothedValue<float> sustainRamp;
+extern juce::SmoothedValue<float> sustainRamp, frequencyMod;
 
 class WavetableOscillator
 {
@@ -133,7 +133,6 @@ public:
 
             ++startSample;
         }
-        
     }
 
     void createPureSineWavetable()
@@ -206,3 +205,25 @@ private:
 };
 
 //==============================================================================
+
+class SynthComponent : public juce::Component
+{
+public:
+    SynthComponent()
+    {
+        addAndMakeVisible(sustainSlider);
+        sustainSlider.setRange(0.8, 1.0);
+        sustainSlider.setBounds(20, 50, 300, 100);
+        sustainSlider.onValueChange = [this]
+        {
+            sustainRamp = sustainSlider.getValue();
+        };
+
+        addAndMakeVisible(sustainLabel);
+        sustainLabel.setBounds(200, 450, 100, 100);
+        sustainLabel.setText(juce::String("Sustain"), juce::dontSendNotification);
+    }
+private:
+    juce::Label sustainLabel;
+    juce::Slider sustainSlider;
+};

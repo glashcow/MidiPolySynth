@@ -35,21 +35,12 @@ public:
         synth.enableLegacyMode(24);
         synth.setVoiceStealingEnabled(false);
 
-        addAndMakeVisible(sustainSlider);
-        sustainSlider.setRange(0.8, 1.0);
-        sustainSlider.setBounds(200, 500, 400, 100);
-        sustainSlider.onValueChange = [this]
-        {
-            sustainRamp = sustainSlider.getValue();
-        };
-
-        addAndMakeVisible(sustainLabel);
-        sustainLabel.setBounds(200, 450, 100, 100);
-        sustainLabel.setText(juce::String("Decay"), juce::dontSendNotification);
+        addAndMakeVisible(synthComp);
+        synthComp.setBounds(50, 400, 500, 300);
 
         visualiserInstrument.enableLegacyMode(24);
 
-        setSize(650, 560);
+        setSize(1500, 1500);
     }
 
     ~MainComponent() override
@@ -116,6 +107,8 @@ private:
 
     Visualiser visualiserComp;
     juce::Viewport visualiserViewport;
+
+    SynthComponent synthComp;
 
     juce::MPEInstrument visualiserInstrument;
     juce::MPESynthesiser synth;
