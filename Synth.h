@@ -182,7 +182,7 @@ private:
     float getNextSample() noexcept
     {
         ++modulo;
-        if (modulo == 128)
+        if (modulo == 1024)
         {
             tailOff *= sustainRamp.getCurrentValue();
             modulo = 0;
