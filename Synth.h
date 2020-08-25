@@ -12,8 +12,9 @@
 
 #include <JuceHeader.h>
 
+
 //Global Synth Variables
-extern juce::SmoothedValue<float> sustainRamp, frequencyMod;
+extern juce::SmoothedValue<float> sustainRamp, attackRamp;
 
 class WavetableOscillator
 {
@@ -63,6 +64,10 @@ public:
     SynthVoice()
     {
         createSquareWavetable();
+        adsr.setSampleRate(48000.0);
+        adsrParas.attack = 2.0f;
+        adsrParas.release = 2.0f;
+        adsr.setParameters(adsrParas);
         osc = new WavetableOscillator(squareTable);
     }
 
@@ -73,21 +78,23 @@ public:
         jassert(currentlyPlayingNote.keyState == juce::MPENote::keyDown
             || currentlyPlayingNote.keyState == juce::MPENote::keyDownAndSustained);
 
+        adsr.noteOn();
         // get data from the current MPENote
         level.setTargetValue(currentlyPlayingNote.pressure.asUnsignedFloat());
         frequency.setTargetValue((float)currentlyPlayingNote.getFrequencyInHertz());
         timbre.setTargetValue(currentlyPlayingNote.timbre.asUnsignedFloat());
 
         osc->setFrequency(frequency.getCurrentValue(), 48000.0);
-        tailOff = 1;
+        
     }
 
     void noteStopped(bool allowTailOff) override
     {
         jassert(currentlyPlayingNote.keyState == juce::MPENote::off);
 
-        clearCurrentNote();
         osc->currentIndex = 0.0;
+        adsr.noteOff();
+        //clearCurrentNote();
     }
 
     void notePressureChanged() override
@@ -127,7 +134,7 @@ public:
     {
         for (auto sample = 0; sample < numSamples; ++sample)
         {
-            float levelSample = getNextSample() * 0.25f;
+            float levelSample = getNextSample() * 0.5f;
             for (auto i = outputBuffer.getNumChannels(); --i >= 0;)
                 outputBuffer.addSample(i, startSample, levelSample);
 
@@ -180,20 +187,17 @@ private:
     unsigned short int modulo = 0;
     float getNextSample() noexcept
     {
-        ++modulo;
-        if (modulo == 1024)
-        {
-            tailOff *= sustainRamp.getCurrentValue();
-            modulo = 0;
-        }
-        return osc->getNextSample() * tailOff;
+        if (!adsr.isActive())
+            clearCurrentNote();
+        return osc->getNextSample() * adsr.getNextSample();
     }
 
     //==============================================================================
     juce::SmoothedValue<float> level, timbre, frequency;
-    float tailOff;
     juce::AudioSampleBuffer pureSineTable;
     juce::AudioSampleBuffer squareTable;
+    juce::ADSR adsr;
+    juce::ADSR::Parameters adsrParas;
 
     WavetableOscillator* osc;
 
@@ -203,8 +207,8 @@ private:
     static constexpr auto smoothingLengthInSeconds = 0.01;
     const unsigned short int tableSize = 1 << 9;
 };
-
 //==============================================================================
+
 
 class SynthComponent : public juce::Component
 {
@@ -220,10 +224,11 @@ public:
         };
 
         addAndMakeVisible(sustainLabel);
-        sustainLabel.setBounds(200, 450, 100, 100);
+        sustainLabel.setBounds(20, 100, 100, 100);
         sustainLabel.setText(juce::String("Sustain"), juce::dontSendNotification);
     }
 private:
     juce::Label sustainLabel;
     juce::Slider sustainSlider;
 };
+

@@ -4,6 +4,7 @@
 #include "Visualiser.h"
 
 juce::SmoothedValue<float> sustainRamp = 0.8f;
+juce::SmoothedValue<float> attackRamp = 0.0f;
 
 class MainComponent : public juce::Component,
     private juce::AudioIODeviceCallback,  
@@ -36,7 +37,7 @@ public:
         synth.setVoiceStealingEnabled(false);
 
         addAndMakeVisible(synthComp);
-        synthComp.setBounds(50, 400, 500, 300);
+        synthComp.setBounds(50, 400, 1200, 600);
 
         visualiserInstrument.enableLegacyMode(24);
 
