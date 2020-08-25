@@ -6,3 +6,5 @@ sound.
 - Fixed little conversion errors
 
 - Added "decay" even though thats the wrong word.
+
+- Stopped trying to make my own ADSR and used the standard juce one, fixed issue with clearing notes when ADSR is not active, for tomorrow add 4 controls for each ADSR.
