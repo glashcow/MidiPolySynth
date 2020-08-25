@@ -4,3 +4,5 @@
 sound.
 
 -Fixed little conversion errors
+
+- Added "decay" even though thats the wrong word.
