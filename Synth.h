@@ -53,15 +53,17 @@ private:
     const int tableSize = 1 << 9;
 };
 //==============================================================================
-class MPEDemoSynthVoice : public juce::MPESynthesiserVoice
+class SynthVoice : public juce::MPESynthesiserVoice
 {
 public:
     //==============================================================================
-    MPEDemoSynthVoice()
+    SynthVoice()
     {
         createSquareWavetable();
         osc = new WavetableOscillator(squareTable);
     }
+
+    //juce::SmoothedValue<float> sustainRamp;
 
     //==============================================================================
     void noteStarted() override
@@ -76,6 +78,7 @@ public:
         timbre.setTargetValue(currentlyPlayingNote.timbre.asUnsignedFloat());
 
         osc->setFrequency(frequency.getCurrentValue(), 48000.0);
+        tailOff = 1.0f;
     }
 
     void noteStopped(bool allowTailOff) override
@@ -123,12 +126,14 @@ public:
     {
         for (auto sample = 0; sample < numSamples; ++sample)
         {
-            float levelSample = osc->getNextSample() * 0.25f;
+            float levelSample = osc->getNextSample() * 0.25f ;
             for (auto i = outputBuffer.getNumChannels(); --i >= 0;)
                 outputBuffer.addSample(i, startSample, levelSample);
 
             ++startSample;
+            
         }
+        //tailOff *= sustainRamp.getCurrentValue();
     }
 
     void createPureSineWavetable()
@@ -175,13 +180,12 @@ private:
     //==============================================================================
     float getNextSample() noexcept
     {
-        auto f1 = osc->getNextSample();
-        auto nextSample = float(0.25f * f1 * 0.5f);
-        return nextSample;
+        return osc->getNextSample();
     }
 
     //==============================================================================
     juce::SmoothedValue<float> level, timbre, frequency;
+    float tailOff;
     juce::AudioSampleBuffer pureSineTable;
     juce::AudioSampleBuffer squareTable;
 

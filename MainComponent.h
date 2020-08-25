@@ -28,7 +28,7 @@ public:
         visualiserInstrument.addListener(&visualiserComp);
 
         for (auto i = 0; i < 15; ++i)
-            synth.addVoice(new MPEDemoSynthVoice());
+            synth.addVoice(new SynthVoice());
 
         synth.enableLegacyMode(24);
         synth.setVoiceStealingEnabled(false);
