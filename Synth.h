@@ -176,11 +176,11 @@ public:
         {
             if (i < (tableSize / 2))
             {
-                samples[i] = 1.0;
+                samples[i] = 0.6;
             }
             else
             {
-                samples[i] = -1.0;
+                samples[i] = -0.6;
             }
         }
         samples[tableSize] = samples[0];
@@ -292,6 +292,7 @@ public:
         addAndMakeVisible(releaseLabel);
         releaseLabel.setBounds(675, 50, 20, 20);
         releaseLabel.setText(juce::String("R"), juce::dontSendNotification);
+        //========================================================================
 
         addAndMakeVisible(oscMixSlider);
         oscMixSlider.setBounds(50, 300, 200, 100);
@@ -300,9 +301,10 @@ public:
         {
             oscMix = oscMixSlider.getValue();
         };
+        //========================================================================
 
         addAndMakeVisible(cutoffSlider);
-        cutoffSlider.setBounds(50, 400, 200, 100);
+        cutoffSlider.setBounds(50, 400, 400, 100);
         cutoffSlider.setRange(20.0, 20000.0f);
         cutoffSlider.setSkewFactorFromMidPoint(5000.0);
         cutoffSlider.onValueChange = [this]
