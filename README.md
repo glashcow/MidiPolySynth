@@ -1,5 +1,7 @@
 # MidiPolySynth
 
+- Using the juce filter just so I have one. Need to make one myself. 
+
 - Slider mixing between square and saw.
 
 - ADSR added possibly something off with Decay, possibly
