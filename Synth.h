@@ -18,6 +18,7 @@ const unsigned int tableSize = 1 << 11;
 const float sampleRate = 48000.0f;
 juce::ADSR::Parameters adsrParas;
 float oscMix = 0.0f;
+juce::SmoothedValue<float> filterCutoff; 
 
 class WavetableOscillator
 {
@@ -72,6 +73,7 @@ public:
         adsr.setParameters(adsrParas);
         saw = new WavetableOscillator(sawtoothTable);
         square = new WavetableOscillator(squareTable);
+        filter.setCoefficients( filterCoeffs.makeLowPass(sampleRate, filterCutoff.getCurrentValue() ) );
     }
     
     //==============================================================================
@@ -141,6 +143,7 @@ public:
             ++startSample;
         }
         adsr.setParameters(adsrParas);
+        filter.setCoefficients(filterCoeffs.makeLowPass(sampleRate, filterCutoff.getCurrentValue() ));
     }
 
     void createPureSineWavetable()
@@ -213,7 +216,7 @@ private:
         }
             
         float mix = (saw->getNextSample() * (1 - oscMix)) + (square->getNextSample() * oscMix);
-        return mix * adsr.getNextSample();
+        return filter.processSingleSampleRaw(mix * adsr.getNextSample() * 0.5f);
     }
 
     //==============================================================================
@@ -221,7 +224,10 @@ private:
     juce::AudioSampleBuffer pureSineTable;
     juce::AudioSampleBuffer squareTable;
     juce::AudioSampleBuffer sawtoothTable;
+    
     juce::ADSR adsr;
+    juce::IIRFilter filter;
+    juce::IIRCoefficients filterCoeffs;
 
     WavetableOscillator* saw;
     WavetableOscillator* square;
@@ -295,6 +301,15 @@ public:
             oscMix = oscMixSlider.getValue();
         };
 
+        addAndMakeVisible(cutoffSlider);
+        cutoffSlider.setBounds(50, 400, 200, 100);
+        cutoffSlider.setRange(20.0, 20000.0f);
+        cutoffSlider.setSkewFactorFromMidPoint(5000.0);
+        cutoffSlider.onValueChange = [this]
+        {
+            filterCutoff = cutoffSlider.getValue();
+        };
+
     }
 private:
     juce::Label attackLabel;
@@ -310,5 +325,6 @@ private:
     juce::Slider releaseSlider;
 
     juce::Slider oscMixSlider;
+    juce::Slider cutoffSlider;
 };
 
