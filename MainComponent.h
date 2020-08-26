@@ -3,8 +3,6 @@
 #include "Synth.h"
 #include "Visualiser.h"
 
-juce::SmoothedValue<float> sustainRamp = 0.8f;
-juce::SmoothedValue<float> attackRamp = 0.0f;
 
 class MainComponent : public juce::Component,
     private juce::AudioIODeviceCallback,  

@@ -14,7 +14,8 @@
 
 
 //Global Synth Variables
-extern juce::SmoothedValue<float> sustainRamp, attackRamp;
+const unsigned int tableSize = 1 << 11;
+const float sampleRate = 48000.0f;
 
 class WavetableOscillator
 {
@@ -54,7 +55,7 @@ public:
 
 private:
     const juce::AudioSampleBuffer& wavetable;
-    const int tableSize = 1 << 9;
+    unsigned short int tableSize;
 };
 //==============================================================================
 class SynthVoice : public juce::MPESynthesiserVoice
@@ -63,14 +64,14 @@ public:
     //==============================================================================
     SynthVoice()
     {
-        createSquareWavetable();
-        adsr.setSampleRate(48000.0);
+        createSawtoothTable();
+        adsr.setSampleRate(sampleRate);
         adsrParas.attack = 2.0f;
         adsrParas.release = 2.0f;
         adsr.setParameters(adsrParas);
-        osc = new WavetableOscillator(squareTable);
+        osc = new WavetableOscillator(sawtoothTable);
     }
-
+    
     //==============================================================================
     void noteStarted() override
     {
@@ -84,7 +85,7 @@ public:
         frequency.setTargetValue((float)currentlyPlayingNote.getFrequencyInHertz());
         timbre.setTargetValue(currentlyPlayingNote.timbre.asUnsignedFloat());
 
-        osc->setFrequency(frequency.getCurrentValue(), 48000.0);
+        osc->setFrequency(frequency.getCurrentValue(), sampleRate);
         
     }
 
@@ -182,53 +183,154 @@ public:
         samples[tableSize] = samples[0];
     }
 
+    void createSawtoothTable()
+    {
+        sawtoothTable.setSize(1, (int)tableSize + 1);
+        sawtoothTable.clear();
+
+        auto* samples = sawtoothTable.getWritePointer(0);
+
+        float tableDelta = 1.0f / tableSize;
+        float phase = 0.0f;
+        for (unsigned short int i = 0; i < tableSize; ++i)
+        {
+            samples[i] = -1.0f + phase;
+            phase += tableDelta;
+        }
+        samples[tableSize] = samples[0];
+    }
+
+    void setAttack(float seconds)
+    {
+        adsrParas.attack = seconds;
+        adsr.setParameters(adsrParas);
+    }
+
+    void setDecay(float seconds)
+    {
+        adsrParas.decay = seconds;
+        adsr.setParameters(adsrParas);
+    }
+
+    void setSustain(float seconds)
+    {
+        adsrParas.sustain = seconds;
+        adsr.setParameters(adsrParas);
+    }
+
+    void setRelease(float seconds)
+    {
+        adsrParas.release = seconds;
+        adsr.setParameters(adsrParas);
+    }
+
 private:
     //==============================================================================
     unsigned short int modulo = 0;
     float getNextSample() noexcept
     {
         if (!adsr.isActive())
+        {
             clearCurrentNote();
+            osc->currentIndex = 0.0f;
+        }
+            
         return osc->getNextSample() * adsr.getNextSample();
     }
 
     //==============================================================================
     juce::SmoothedValue<float> level, timbre, frequency;
+
     juce::AudioSampleBuffer pureSineTable;
     juce::AudioSampleBuffer squareTable;
+    juce::AudioSampleBuffer sawtoothTable;
+
     juce::ADSR adsr;
     juce::ADSR::Parameters adsrParas;
 
     WavetableOscillator* osc;
 
-    // some useful constants
-    static constexpr auto maxLevel = 0.1;
-    static constexpr auto maxLevelDb = 0.2;
-    static constexpr auto smoothingLengthInSeconds = 0.01;
-    const unsigned short int tableSize = 1 << 9;
+    float smoothingLengthInSeconds = 0.1f;
 };
 //==============================================================================
 
-
+//class adsrAdaptor
+//{
+//public:
+//    adsrAdaptor() {}
+            
+    
+//};
+//==============================================================================
 class SynthComponent : public juce::Component
 {
 public:
     SynthComponent()
     {
+        addAndMakeVisible(attackSlider);
+        attackSlider.setRange(0.0, 5.0);
+        attackSlider.setBounds(50, 50, 200, 100);
+        attackSlider.onValueChange = [this]
+        {
+            synth.setAttack((float)attackSlider.getValue());
+        };
+
+        addAndMakeVisible(attackLabel);
+        attackLabel.setBounds(25, 50, 20, 20);
+        attackLabel.setText(juce::String("A"), juce::dontSendNotification);
+        //========================================================================
+
+        addAndMakeVisible(decaySlider);
+        decaySlider.setRange(0.0, 5.0);
+        decaySlider.setBounds(200, 50, 200, 100);
+        decaySlider.onValueChange = [this]
+        {
+            synth.setDecay((float)decaySlider.getValue());
+        };
+
+        addAndMakeVisible(decayLabel);
+        decayLabel.setBounds(175, 50, 20, 20);
+        decayLabel.setText(juce::String("D"), juce::dontSendNotification);
+        //========================================================================
+
         addAndMakeVisible(sustainSlider);
-        sustainSlider.setRange(0.8, 1.0);
-        sustainSlider.setBounds(20, 50, 300, 100);
+        sustainSlider.setRange(0.0, 5.0);
+        sustainSlider.setBounds(350, 50, 200, 100);
         sustainSlider.onValueChange = [this]
         {
-            sustainRamp = sustainSlider.getValue();
+            synth.setSustain((float)sustainSlider.getValue());
         };
 
         addAndMakeVisible(sustainLabel);
-        sustainLabel.setBounds(20, 100, 100, 100);
-        sustainLabel.setText(juce::String("Sustain"), juce::dontSendNotification);
+        sustainLabel.setBounds(325, 50, 20, 20);
+        sustainLabel.setText(juce::String("S"), juce::dontSendNotification);
+        //========================================================================
+
+        addAndMakeVisible(releaseSlider);
+        releaseSlider.setRange(0.0, 5.0);
+        releaseSlider.setBounds(500, 50, 200, 100);
+        releaseSlider.onValueChange = [this]
+        {
+            synth.setRelease((float)releaseSlider.getValue());
+        };
+
+        addAndMakeVisible(releaseLabel);
+        releaseLabel.setBounds(475, 50, 20, 20);
+        releaseLabel.setText(juce::String("R"), juce::dontSendNotification);
     }
 private:
+    juce::Label attackLabel;
+    juce::Slider attackSlider;
+
+    juce::Label decayLabel;
+    juce::Slider decaySlider;
+
     juce::Label sustainLabel;
     juce::Slider sustainSlider;
+
+    juce::Label releaseLabel;
+    juce::Slider releaseSlider;
+
+    SynthVoice synth;
 };
 
