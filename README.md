@@ -8,3 +8,5 @@ sound.
 - Added "decay" even though thats the wrong word.
 
 - Stopped trying to make my own ADSR and used the standard juce one, fixed issue with clearing notes when ADSR is not active, for tomorrow add ADSR controls. 
+
+- added sawtooth and smoother transitions between notes, but pushing in the very real case I ruin everything 
