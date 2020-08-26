@@ -17,6 +17,7 @@
 const unsigned int tableSize = 1 << 11;
 const float sampleRate = 48000.0f;
 juce::ADSR::Parameters adsrParas;
+float oscMix = 0.0f;
 
 class WavetableOscillator
 {
@@ -66,11 +67,11 @@ public:
     SynthVoice()
     {
         createSawtoothTable();
+        createSquareWavetable();
         adsr.setSampleRate(sampleRate);
-        adsrParas.attack = 2.0f;
-        adsrParas.release = 2.0f;
         adsr.setParameters(adsrParas);
-        osc = new WavetableOscillator(sawtoothTable);
+        saw = new WavetableOscillator(sawtoothTable);
+        square = new WavetableOscillator(squareTable);
     }
     
     //==============================================================================
@@ -86,14 +87,13 @@ public:
         frequency.setTargetValue((float)currentlyPlayingNote.getFrequencyInHertz());
         timbre.setTargetValue(currentlyPlayingNote.timbre.asUnsignedFloat());
 
-        osc->setFrequency(frequency.getCurrentValue(), sampleRate);
-        
+        saw->setFrequency(frequency.getCurrentValue(), sampleRate);
+        square->setFrequency(frequency.getCurrentValue(), sampleRate);
     }
 
     void noteStopped(bool allowTailOff) override
     {
         jassert(currentlyPlayingNote.keyState == juce::MPENote::off);
-
         adsr.noteOff();
     }
 
@@ -208,10 +208,12 @@ private:
         if (!adsr.isActive())
         {
             clearCurrentNote();
-            osc->currentIndex = 0.0f;
+            square->currentIndex = 0.0f;
+            saw->currentIndex = 0.0f;
         }
             
-        return osc->getNextSample() * adsr.getNextSample();
+        float mix = (saw->getNextSample() * (1 - oscMix)) + (square->getNextSample() * oscMix);
+        return mix * adsr.getNextSample();
     }
 
     //==============================================================================
@@ -221,7 +223,8 @@ private:
     juce::AudioSampleBuffer sawtoothTable;
     juce::ADSR adsr;
 
-    WavetableOscillator* osc;
+    WavetableOscillator* saw;
+    WavetableOscillator* square;
 
     float smoothingLengthInSeconds = 0.1f;
 };
@@ -283,6 +286,15 @@ public:
         addAndMakeVisible(releaseLabel);
         releaseLabel.setBounds(675, 50, 20, 20);
         releaseLabel.setText(juce::String("R"), juce::dontSendNotification);
+
+        addAndMakeVisible(oscMixSlider);
+        oscMixSlider.setBounds(50, 300, 200, 100);
+        oscMixSlider.setRange(0.0, 1.0);
+        oscMixSlider.onValueChange = [this]
+        {
+            oscMix = oscMixSlider.getValue();
+        };
+
     }
 private:
     juce::Label attackLabel;
@@ -296,5 +308,7 @@ private:
 
     juce::Label releaseLabel;
     juce::Slider releaseSlider;
+
+    juce::Slider oscMixSlider;
 };
 
