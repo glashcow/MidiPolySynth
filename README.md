@@ -1,5 +1,7 @@
 # MidiPolySynth
 
+- Slider mixing between square and saw.
+
 - ADSR added possibly something off with Decay, possibly
 
 - added sawtooth and smoother transitions between notes, but pushing in the very real case I ruin everything 
