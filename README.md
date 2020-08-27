@@ -1,5 +1,7 @@
 # MidiPolySynth
 
+- Moved wavetable to its own file, but trying to implement a queue of synthvoices for voice stealing is not working as I though.
+
 - Using the juce filter just so I have one. Need to make one myself. 
 
 - Slider mixing between square and saw.
