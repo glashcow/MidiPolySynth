@@ -11,6 +11,8 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <queue>
+#include "Wavetable.h"
 
 
 //Global Synth Variables
@@ -19,48 +21,9 @@ const float sampleRate = 48000.0f;
 juce::ADSR::Parameters adsrParas;
 float oscMix = 0.0f;
 juce::SmoothedValue<float> filterCutoff; 
+extern unsigned short int numberOfVoices;
 
-class WavetableOscillator
-{
-public:
-    float currentIndex = 0.0f, tableDelta = 0.0f;
-
-    WavetableOscillator(const juce::AudioSampleBuffer& wavetableToUse) : wavetable(wavetableToUse), tableSize(wavetable.getNumSamples() - 1)
-    {
-        jassert(wavetable.getNumChannels() == 1);
-    }
-
-    void setFrequency(float frequency, float sampleRate)
-    {
-        auto tableSizeOverSampleRate = (float)tableSize / sampleRate;
-        tableDelta = frequency * tableSizeOverSampleRate;
-    }
-
-    forcedinline float getNextSample() noexcept
-    {
-        auto index0 = (unsigned int)currentIndex;
-        auto index1 = index0 + 1;
-
-        auto frac = currentIndex - (float)index0;
-
-        auto* table = wavetable.getReadPointer(0);
-        auto value0 = table[index0];
-        auto value1 = table[index1];
-
-        //interpolate
-        auto currentSample = value0 + frac * (value1 - value0);
-
-        if ((currentIndex += tableDelta) > (float)tableSize)
-            currentIndex -= (float)tableSize;
-
-        return currentSample;
-    }
-
-private:
-    const juce::AudioSampleBuffer& wavetable;
-    unsigned short int tableSize;
-};
-//==============================================================================
+//=================================================================================
 class SynthVoice : public juce::MPESynthesiserVoice
 {
 public:
@@ -70,7 +33,6 @@ public:
         createSawtoothTable();
         createSquareWavetable();
         adsr.setSampleRate(sampleRate);
-        adsr.setParameters(adsrParas);
         saw = new WavetableOscillator(sawtoothTable);
         square = new WavetableOscillator(squareTable);
         filter.setCoefficients( filterCoeffs.makeLowPass(sampleRate, filterCutoff.getCurrentValue() ) );
@@ -146,25 +108,7 @@ public:
         filter.setCoefficients(filterCoeffs.makeLowPass(sampleRate, filterCutoff.getCurrentValue() ));
     }
 
-    void createPureSineWavetable()
-    {
-        pureSineTable.setSize(1, (int)tableSize + 1);
-        pureSineTable.clear();
-
-        auto* samples = pureSineTable.getWritePointer(0);
-
-        auto angleDelta = juce::MathConstants<float>::twoPi / (float)(tableSize - 1);
-        auto currentAngle = 0.0;
-
-        for (unsigned short int i = 0; i < tableSize; ++i)
-        {
-            auto sample = std::sin(currentAngle);
-            samples[i] += (float)sample;
-            currentAngle += angleDelta;
-        }
-        samples[tableSize] = samples[0];
-    }
-
+   
     void createSquareWavetable()
     {
         squareTable.setSize(1, (int)tableSize + 1);
@@ -197,10 +141,15 @@ public:
         float phase = 0.0f;
         for (unsigned short int i = 0; i < tableSize; ++i)
         {
-            samples[i] = -1.0f + phase;
+            samples[i] = (-1.0f + phase) * 0.6;
             phase += tableDelta;
         }
         samples[tableSize] = samples[0];
+    }
+
+    void clearNote()
+    {
+        clearCurrentNote();
     }
 
 private:
@@ -218,7 +167,6 @@ private:
         float mix = (saw->getNextSample() * (1 - oscMix)) + (square->getNextSample() * oscMix);
         return filter.processSingleSampleRaw(mix * adsr.getNextSample() * 0.5f);
     }
-
     //==============================================================================
     juce::SmoothedValue<float> level, timbre, frequency;
     juce::AudioSampleBuffer pureSineTable;
@@ -231,6 +179,7 @@ private:
 
     WavetableOscillator* saw;
     WavetableOscillator* square;
+
 
     float smoothingLengthInSeconds = 0.1f;
 };

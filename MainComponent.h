@@ -3,6 +3,8 @@
 #include "Synth.h"
 #include "Visualiser.h"
 
+extern unsigned short int numberOfVoices = 3;
+
 
 class MainComponent : public juce::Component,
     private juce::AudioIODeviceCallback,  
@@ -28,7 +30,7 @@ public:
 
         visualiserInstrument.addListener(&visualiserComp);
 
-        for (auto i = 0; i < 15; ++i)
+        for (auto i = 0; i < numberOfVoices; ++i)
             synth.addVoice(new SynthVoice());
 
         synth.enableLegacyMode(24);
