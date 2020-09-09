@@ -1,6 +1,6 @@
 # MidiPolySynth
 
-- Removed wavetable file, keep all sound aking bit in one file, trying to make a master wavetable made of tables stuck together, want to be able to smoothly run through, not working as soon as you move slider but not crashing
+- Removed wavetable file, keep all sound making bits in one file, trying to make a master wavetable made of tables stuck together, want to be able to smoothly run through, not working as soon as you move slider but not crashing
 
 - Moved wavetable to its own file, but trying to implement a queue of synthvoices for voice stealing is not working as I though.
 
