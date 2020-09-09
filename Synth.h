@@ -11,18 +11,54 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include <queue>
-#include "Wavetable.h"
 
 
 //Global Synth Variables
-const unsigned int tableSize = 1 << 11;
+const unsigned int tableSize = 1 << 11, numberOfTablesInMasterTable = 2, totalTableSize = tableSize * numberOfTablesInMasterTable + 1;
 const float sampleRate = 48000.0f;
 juce::ADSR::Parameters adsrParas;
-float oscMix = 0.0f;
-juce::SmoothedValue<float> filterCutoff; 
+juce::SmoothedValue<float> filterCutoff,  oscMix = 0.0f;
 extern unsigned short int numberOfVoices;
 
+
+class WavetableOscillator
+{
+private:
+    const juce::AudioSampleBuffer& wavetable;
+    unsigned short int tableSize;
+public:
+    WavetableOscillator(juce::AudioSampleBuffer& wavetableToUse) : wavetable(wavetableToUse), tableSize(wavetable.getNumSamples() - 1)
+    {
+        jassert(wavetable.getNumChannels() == 1);
+    }
+
+    float currentIndex = 0.0f, tableDelta = 0.0f;
+
+    void setFrequency(float frequency, float sampleRate)
+    {
+        auto tableSizeOverSampleRate = (float)tableSize / sampleRate;
+        tableDelta = frequency * tableSizeOverSampleRate;
+    }
+
+    forcedinline float getNextSample() noexcept
+    {
+        auto index0 = (unsigned int)currentIndex;
+        auto index1 = index0 + 1;
+
+        auto frac = currentIndex - (float)index0;
+
+        auto* table = wavetable.getReadPointer(0);
+        auto value0 = table[index0];
+        auto value1 = table[index1];
+
+        //interpolate
+        auto currentSample = value0 + frac * (value1 - value0);
+
+        if ((currentIndex += tableDelta) > oscMix.getCurrentValue() + (float)tableSize)
+            currentIndex -= (float)tableSize;
+        return currentSample;
+    }
+};
 //=================================================================================
 class SynthVoice : public juce::MPESynthesiserVoice
 {
@@ -30,11 +66,9 @@ public:
     //==============================================================================
     SynthVoice()
     {
-        createSawtoothTable();
-        createSquareWavetable();
+        writeWholeWaveTable();
         adsr.setSampleRate(sampleRate);
-        saw = new WavetableOscillator(sawtoothTable);
-        square = new WavetableOscillator(squareTable);
+        masterOscillator = new WavetableOscillator(masterWaveTable);
         filter.setCoefficients( filterCoeffs.makeLowPass(sampleRate, filterCutoff.getCurrentValue() ) );
     }
     
@@ -51,14 +85,14 @@ public:
         frequency.setTargetValue((float)currentlyPlayingNote.getFrequencyInHertz());
         timbre.setTargetValue(currentlyPlayingNote.timbre.asUnsignedFloat());
 
-        saw->setFrequency(frequency.getCurrentValue(), sampleRate);
-        square->setFrequency(frequency.getCurrentValue(), sampleRate);
+        masterOscillator->setFrequency(frequency.getCurrentValue(), sampleRate);
     }
 
     void noteStopped(bool allowTailOff) override
     {
         jassert(currentlyPlayingNote.keyState == juce::MPENote::off);
         adsr.noteOff();
+        //limiter->add(*this);
     }
 
     void notePressureChanged() override
@@ -109,42 +143,33 @@ public:
     }
 
    
-    void createSquareWavetable()
+    void writeSquareWavetable(float* samples, unsigned short int startSample)
     {
-        squareTable.setSize(1, (int)tableSize + 1);
-        squareTable.clear();
-
-        auto* samples = squareTable.getWritePointer(0);
-
-        for (unsigned short int i = 0; i < tableSize; ++i)
+        for (unsigned short int i = startSample; i < startSample + tableSize; ++i)
         {
-            if (i < (tableSize / 2))
-            {
-                samples[i] = 0.6;
-            }
-            else
-            {
-                samples[i] = -0.6;
-            }
+            (i < ((startSample + tableSize) / 2)) ? samples[i] = 0.6 : samples[i] = -0.6;
         }
-        samples[tableSize] = samples[0];
     }
 
-    void createSawtoothTable()
+    void writeSawtoothTable(float* samples, unsigned short int startSample)
     {
-        sawtoothTable.setSize(1, (int)tableSize + 1);
-        sawtoothTable.clear();
-
-        auto* samples = sawtoothTable.getWritePointer(0);
-
         float tableDelta = 1.0f / tableSize;
         float phase = 0.0f;
-        for (unsigned short int i = 0; i < tableSize; ++i)
+        for (unsigned short int i = startSample; i < startSample + tableSize; ++i)
         {
             samples[i] = (-1.0f + phase) * 0.6;
             phase += tableDelta;
         }
-        samples[tableSize] = samples[0];
+    }
+    
+    void writeWholeWaveTable()
+    {
+        masterWaveTable.setSize(1, totalTableSize);
+        masterWaveTable.clear();
+        auto* samples = masterWaveTable.getWritePointer(0);
+        writeSawtoothTable(samples, 0);
+        writeSquareWavetable(samples, tableSize);
+        samples[totalTableSize] = samples[0];
     }
 
     void clearNote()
@@ -154,37 +179,49 @@ public:
 
 private:
     //==============================================================================
-    unsigned short int modulo = 0;
     float getNextSample() noexcept
     {
         if (!adsr.isActive())
         {
             clearCurrentNote();
-            square->currentIndex = 0.0f;
-            saw->currentIndex = 0.0f;
+            masterOscillator->currentIndex = oscMix.getCurrentValue();
         }
             
-        float mix = (saw->getNextSample() * (1 - oscMix)) + (square->getNextSample() * oscMix);
-        return filter.processSingleSampleRaw(mix * adsr.getNextSample() * 0.5f);
+        float rawSample = masterOscillator->getNextSample();
+        return filter.processSingleSampleRaw(rawSample * adsr.getNextSample() * 0.5f);
     }
     //==============================================================================
     juce::SmoothedValue<float> level, timbre, frequency;
-    juce::AudioSampleBuffer pureSineTable;
-    juce::AudioSampleBuffer squareTable;
-    juce::AudioSampleBuffer sawtoothTable;
+    juce::AudioSampleBuffer masterWaveTable;
     
     juce::ADSR adsr;
     juce::IIRFilter filter;
     juce::IIRCoefficients filterCoeffs;
 
-    WavetableOscillator* saw;
-    WavetableOscillator* square;
-
-
+    WavetableOscillator* masterOscillator;
+    
     float smoothingLengthInSeconds = 0.1f;
 };
 //==============================================================================
+/*
+class VoiceLimiter
+{
+public:
+    VoiceLimiter() {}
 
+    void add(SynthVoice& voice)
+    {
+        voices.push(voice);
+        if (voices.size() >= numberOfVoices)
+        {
+            SynthVoice& temp = voices.front();
+            temp.clearNote();
+        }
+    }
+
+private:
+    static std::queue<SynthVoice> voices;
+};*/
 
 class SynthComponent : public juce::Component
 {
@@ -245,7 +282,7 @@ public:
 
         addAndMakeVisible(oscMixSlider);
         oscMixSlider.setBounds(50, 300, 200, 100);
-        oscMixSlider.setRange(0.0, 1.0);
+        oscMixSlider.setRange(0.0, 1024.0);
         oscMixSlider.onValueChange = [this]
         {
             oscMix = oscMixSlider.getValue();
@@ -260,7 +297,6 @@ public:
         {
             filterCutoff = cutoffSlider.getValue();
         };
-
     }
 private:
     juce::Label attackLabel;

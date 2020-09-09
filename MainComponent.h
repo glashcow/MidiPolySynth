@@ -6,6 +6,7 @@
 extern unsigned short int numberOfVoices = 3;
 
 
+
 class MainComponent : public juce::Component,
     private juce::AudioIODeviceCallback,  
     private juce::MidiInputCallback       
