@@ -1,5 +1,7 @@
 # MidiPolySynth
 
+- Removed wavetable file, keep all sound aking bit in one file, trying to make a wavetable you can smoothly run through, not working as soon as you move slider but not crashing
+
 - Moved wavetable to its own file, but trying to implement a queue of synthvoices for voice stealing is not working as I though.
 
 - Using the juce filter just so I have one. Need to make one myself. 
